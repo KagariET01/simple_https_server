@@ -1,5 +1,5 @@
 {
-	"name": "simple-https-server",
+	"name": "@kagariet01/simple_https_server",
 	"version": "1.0.0",
 	"description": "A simple HTTPS server implementation in TypeScript",
 	"main": "dist/index.js",
