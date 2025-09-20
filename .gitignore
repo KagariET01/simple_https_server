@@ -1,2 +1,6 @@
 dist/
 node_modules/
+notes/
+package-lock.json
+.vscode/
+release/

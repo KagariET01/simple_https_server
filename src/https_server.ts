@@ -2,6 +2,8 @@ import https from "https";
 import http from "http";
 import fs from "fs";
 import path from "path";
+import net from "net";
+import socketio from "socket.io";
 
 /**
  * @property {number} [100] Continue
@@ -144,15 +146,27 @@ type Auth_result={
 	response_func?:httpResponser<void>;
 }
 
+type log_lv="🔵Log"|"🟢Info"|"🟠Warn"|"🔴Err"|string;
+
 
 export const HTTPSServer=class{
 
 	/**
-	 * 伺服器使用的通訊埠
-	 * server port.
+	 * 伺服器使用的通訊埠，若設置成null則不會啟動HTTP(S)伺服器。
+	 * 
+	 * server port. set to null to disable HTTP(S) server.
 	 * @default 8080
 	 */
-	port:number=8080;
+	port:number|null=8080;
+
+	/**
+	 * Unix Domain Socket路徑，用於IPC通訊。若設置成null則不會建立unix_domain_socket。
+	 * 
+	 * Unix Domain Socket path for IPC communication.  
+	 * set to null to disable unix_domain_socket.
+	 * 
+	 */
+	unix_domain_socket_path:string|null=null;
 
 	/**
 	 * 你的應用程式的根目錄（應填入主機的目錄路徑）  
@@ -260,7 +274,7 @@ export const HTTPSServer=class{
 		 * 該長度必須小於或等於6個字元。 length must less than or equal to 6 characters.  
 	 * @param msg 寫入進日誌的訊息 message to log
 	 */
-	async write_log(lv:string,msg:string):Promise<void>{
+	async write_log(lv:log_lv,msg:string):Promise<void>{
 		if(!this.log_file_fs){
 			return;
 		}
@@ -561,6 +575,13 @@ export const HTTPSServer=class{
 	server:http.Server|null=null;
 
 	/**
+	 * Unix Domain Socket伺服器實例，如果伺服器已啟動，他會被保存在這裡，否則這裡會是`null`。
+	 * 
+	 * Unix Domain Socket server instance, if the server is started, it will be saved here, otherwise it will be `null`.
+	 */
+	unix_socket_server:net.Server|null=null;
+
+	/**
 	 * 啟動伺服器。如果已設定SSL憑證和金鑰，則使用HTTPS協議，否則使用HTTP協議。
 	 * 
 	 * Start the server. If SSL certificate and key are set, it will use HTTPS protocol, otherwise it will use HTTP protocol.
@@ -572,17 +593,35 @@ export const HTTPSServer=class{
 			cert=fs.readFileSync(this.cert).toString();
 			key=fs.readFileSync(this.key).toString();
 		}
-		if(cert && key){
-			this.server=https.createServer({
-				cert:cert,
-				key:key
-			},this.server_function);
-			console.debug("🔵Log","HTTPS server created with cert and key.");
-		}else{
-			this.server=http.createServer(this.server_function);
-			console.debug("🔵Log","HTTP server created without cert and key.");
+		if(this.port !== null && this.port>=0 && this.port<=65535){
+			new Promise<void>(()=>{
+				this.write_log("🔵Log","Starting server...");
+				if(cert && key){
+					this.server=https.createServer({
+						cert:cert,
+						key:key
+					},this.server_function);
+					this.write_log("🔵Log","HTTPS server created with cert and key.");
+				}else{
+					this.server=http.createServer(this.server_function);
+					this.write_log("🔵Log","HTTP server created without cert and key.");
+				}
+				this.server.listen(this.port,()=>{
+					this.write_log("🟢Info",`Server started on port ${this.port}`);
+				});
+			});
 		}
-		this.server.listen(this.port,()=>{});
+		if(this.unix_domain_socket_path !== null && this.unix_domain_socket_path){
+			new Promise<void>(()=>{
+				this.write_log("🔵Log","Starting unix domain socket server...");
+				this.unix_socket_server=net.createServer((socket)=>{
+					socket.on("data",this.server_function);
+				});
+				this.unix_socket_server.listen(this.unix_domain_socket_path,()=>{
+					this.write_log("🟢Info",`Unix domain socket server started on path ${this.unix_domain_socket_path}`);
+				});
+			});
+		}
 	}
 
 }

@@ -1,0 +1,15 @@
+# 1.1.0 unix socket update
+
+now support unix socket server.  
+to enable, set the socket path at `HTTPSServer.unix_domain_socket_path` property.  
+to disable HTTP/HTTPS server or disable unix socket server, set the corresponding property (`port`, `unix_domain_socket_path`) to `null`.
+
+現在支援Unix Socket伺服器。
+若要啟用，請設定 socket server 路徑到 `HTTPSServer.unix_domain_socket_path` 。
+若你想停用 HTTP/HTTPS 伺服器或停用 Unix Socket 伺服器，請將對應的屬性（`port`, `unix_domain_socket_path`）設為 `null` 。
+
+# 1.0.0 initial release
+initial release  
+All begins from here.
+
+初始版本，也是一切的起始點。
