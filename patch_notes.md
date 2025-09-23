@@ -1,3 +1,9 @@
+# 1.2.0 api.js support
+
+now support api.js file. It can be used as your backend handling server.
+
+現在支援 api.js 檔案作為你的後端處理伺服器。
+
 # 1.1.0 unix socket update
 
 now support unix socket server.  

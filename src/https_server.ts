@@ -397,8 +397,11 @@ export const HTTPSServer=class{
 		"*":(req,res,status_code,fpath)=>{
 			return this.simple_file_reader(req,res,status_code,"text/plain",fpath);
 		},
-		"api.js":(req,res,status_code,fpath)=>{
-
+		"api.js":async(req,res,status_code,fpath)=>{
+			const mod=await import(fpath);
+			const handler=typeof(mod)==="function"?mod:mod.default;
+			console.log(handler);
+			await handler(req,res);
 		}
 	};
 
