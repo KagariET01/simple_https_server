@@ -1,3 +1,11 @@
+# 1.2.0-patch2
+
+fix some bug.
+
+# 1.2.0-patch1
+
+fix some bug.
+
 # 1.2.0 api.js support
 
 now support api.js file. It can be used as your backend handling server.

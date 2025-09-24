@@ -1,5 +1,7 @@
+# dist/
 notes/
 node_modules/
 package-lock.json
 .vscode/
 release/
+test*

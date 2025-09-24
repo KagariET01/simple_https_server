@@ -284,10 +284,26 @@ export const HTTPSServer=class{
 		// let formatted_msg=this.string_formatter(msg,100,false);
 		let formatted_msg:String=msg;
 		let log_entry=`[${timestamp}] [${formatted_lv}] `;
-		formatted_msg.replaceAll("\n",`\n${" ".repeat(log_entry.length)}`);
-		log_entry+=formatted_msg+"\n";
-		this.log_file_fs.write(log_entry);
-		console.log(log_entry);
+		let msg_list=formatted_msg.split("\n");
+		// console.log({msg_list});
+		let sp=" ".repeat(log_entry.length);
+		for(let i=0;i<msg_list.length;i++){
+			if(i){
+				// console.log("i!=0");
+				this.log_file_fs.write(sp+msg_list[i]+"\n");
+				process.stdout.write(sp+msg_list[i]+"\n");
+			}else{
+				// console.log("i==0");
+				this.log_file_fs.write(log_entry+msg_list[i]+"\n");
+				process.stdout.write(log_entry+msg_list[i]+"\n");
+			}
+		}
+
+		// formatted_msg.replaceAll("\n","\n"+sp);
+		// console.log({sp,formatted_msg});
+		// log_entry+=formatted_msg+"\n";
+		// this.log_file_fs.write(log_entry);
+		// process.stdout.write(log_entry);
 	}
 
 	/**
@@ -394,14 +410,18 @@ export const HTTPSServer=class{
 		js:(req,res,status_code,fpath)=>{
 			return this.simple_file_reader(req,res,status_code,"application/javascript",fpath);
 		},
+		"api.js":async(req,res,status_code,fpath)=>{
+			// console.log("loading api.js file:",fpath);
+			// fpath=`./${fpath}`;
+			const mod=await import(fpath);
+			// console.log("file loaded.");
+			// console.log({mod});
+			const handler=typeof(mod)==="function"?mod:mod.default;
+			// console.log(handler);
+			await handler(req,res);
+		},
 		"*":(req,res,status_code,fpath)=>{
 			return this.simple_file_reader(req,res,status_code,"text/plain",fpath);
-		},
-		"api.js":async(req,res,status_code,fpath)=>{
-			const mod=await import(fpath);
-			const handler=typeof(mod)==="function"?mod:mod.default;
-			console.log(handler);
-			await handler(req,res);
 		}
 	};
 
@@ -414,6 +434,7 @@ export const HTTPSServer=class{
 		"index.html",
 		"index.htm",
 		"index.json",
+		"index.api.js",
 		"index.js",
 		"index.txt",
 		"index.md",
@@ -455,9 +476,12 @@ export const HTTPSServer=class{
 		re=decodeURIComponent(re); // 解碼URL編碼
 		re=re.replace(/\\/g,"/"); // 將反斜線轉換為斜線
 		re=path.join(this.app_path,re); // 組合應用程式根目錄和請求路徑
+		// console.log(`looking for file: ${re}`);
 		if(this.fileExists(re)){
+			// console.log(`file found: ${re}`);
 			let stats=fs.statSync(re);
 			if(stats.isDirectory()){
+				// console.log(`file is a directory: ${re}`);
 				// 如果是目錄，則尋找index檔案
 				for(let index_file of this.index){
 					let index_path=path.join(re,index_file);
@@ -467,6 +491,7 @@ export const HTTPSServer=class{
 				}
 				return {find:"directory",path:re}; // 如果沒有找到index檔案，則返回目錄路徑
 			}else if(stats.isFile()){
+				// console.log(`file is a file: ${re}`);
 				return {find:"file",path:re};
 			}else{
 				return {find:"none",path:""};
@@ -477,10 +502,17 @@ export const HTTPSServer=class{
 	}
 
 	server_function:http.RequestListener=async(req,res)=>{
+		// console.log(req.url);
 		let fpath:string=req.url||"/";
 		let status_code:http_status_code=200;
 		let decoded_path_res=this.path_decode(fpath);
 		let auth_res:Auth_result;
+		// console.log({
+		// 	"req.url":req.url,
+		// 	fpath,
+		// 	status_code,
+		// 	decoded_path_res
+		// });
 
 		if(decoded_path_res.find==="none" || // file not found
 			(decoded_path_res.find==="directory" && !this.FileLoaders["/"]) || // directory have no index file and server can not deal with a directories
@@ -494,7 +526,8 @@ export const HTTPSServer=class{
 				this.client_record(req,res,404,fpath);
 			else
 				this.client_record(req,res,500,fpath);
-				this.write_log("🟠Warn",`Server can not deal with path: ${fpath}\nindex file not found and server can not deal with a directories`);
+				this.write_log("🟠Warn",`Server can not deal with path: ${fpath}\n`+
+					`index file not found and server can not deal with a directories`);
 			if(this.Err404===null){
 				res.writeHead(500);
 				res.end("");
@@ -526,8 +559,10 @@ export const HTTPSServer=class{
 
 			let extname="";
 			if(decoded_path_res.find==="file"){
+				// console.log(`ExtType: ${this.ExtType}`);
 				if(this.ExtType==="mutiple"){
-					let ext=decoded_path_res.path.split(".").slice(-1);
+					let ext=decoded_path_res.path.split(".").slice(1);
+					// console.log({ext});
 					if(ext.length){
 						for(let i of ext){
 							extname+=i.toLowerCase()+".";
@@ -540,6 +575,8 @@ export const HTTPSServer=class{
 			}else if(decoded_path_res.find==="directory"){
 				extname="/"; // directory
 			}
+
+			// console.log(`extname: ${extname}`);
 
 			let origextname=extname; // save original extname for error message
 
@@ -590,40 +627,45 @@ export const HTTPSServer=class{
 	 * Start the server. If SSL certificate and key are set, it will use HTTPS protocol, otherwise it will use HTTP protocol.
 	 */
 	start():void{
-		let cert:string|null=null;
-		let key:string|null=null;
-		if(this.cert && this.key){
-			cert=fs.readFileSync(this.cert).toString();
-			key=fs.readFileSync(this.key).toString();
-		}
-		if(this.port !== null && this.port>=0 && this.port<=65535){
-			new Promise<void>(()=>{
-				this.write_log("🔵Log","Starting server...");
-				if(cert && key){
-					this.server=https.createServer({
-						cert:cert,
-						key:key
-					},this.server_function);
-					this.write_log("🔵Log","HTTPS server created with cert and key.");
-				}else{
-					this.server=http.createServer(this.server_function);
-					this.write_log("🔵Log","HTTP server created without cert and key.");
-				}
-				this.server.listen(this.port,()=>{
-					this.write_log("🟢Info",`Server started on port ${this.port}`);
+		try{
+			let cert:string|null=null;
+			let key:string|null=null;
+			if(this.cert && this.key){
+				cert=fs.readFileSync(this.cert).toString();
+				key=fs.readFileSync(this.key).toString();
+			}
+			this.log_file_fs=this.log_file_path?fs.createWriteStream(this.log_file_path,{flags:"a"}):null;
+			if(this.port !== null && this.port>=0 && this.port<=65535){
+				new Promise<void>(()=>{
+					this.write_log("🔵Log","Starting server...");
+					if(cert && key){
+						this.server=https.createServer({
+							cert:cert,
+							key:key
+						},this.server_function);
+						this.write_log("🔵Log","HTTPS server created with cert and key.");
+					}else{
+						this.server=http.createServer(this.server_function);
+						this.write_log("🔵Log","HTTP server created without cert and key.");
+					}
+					this.server.listen(this.port,()=>{
+						this.write_log("🟢Info",`Server started on port ${this.port}`);
+					});
 				});
-			});
-		}
-		if(this.unix_domain_socket_path !== null && this.unix_domain_socket_path){
-			new Promise<void>(()=>{
-				this.write_log("🔵Log","Starting unix domain socket server...");
-				this.unix_socket_server=net.createServer((socket)=>{
-					socket.on("data",this.server_function);
+			}
+			if(this.unix_domain_socket_path !== null && this.unix_domain_socket_path){
+				new Promise<void>(()=>{
+					this.write_log("🔵Log","Starting unix domain socket server...");
+					this.unix_socket_server=net.createServer((socket)=>{
+						socket.on("data",this.server_function);
+					});
+					this.unix_socket_server.listen(this.unix_domain_socket_path,()=>{
+						this.write_log("🟢Info",`Unix domain socket server started on path ${this.unix_domain_socket_path}`);
+					});
 				});
-				this.unix_socket_server.listen(this.unix_domain_socket_path,()=>{
-					this.write_log("🟢Info",`Unix domain socket server started on path ${this.unix_domain_socket_path}`);
-				});
-			});
+			}
+		}catch(e){
+			this.log_file_fs?.closed;
 		}
 	}
 
