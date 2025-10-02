@@ -1,3 +1,13 @@
+# 1.3.0 socket proxy support
+
+now support socket proxy.  
+if the prefix of request url is a socket file  path, the request will be proxied to the socket server.	
+for example, if the request url is `/dir/socket_server.socket/some/api`, the request will be proxied to the socket server at `<app_path>/dir/socket_server.socket` with path `/some/api`.
+
+現在支援把請求轉發到socket伺服器。
+如果請求的url前綴是socket檔案路徑，請求會被轉發到該socket伺服器。
+例如，若請求的url是 `/dir/socket_server.socket/some/api`，請求會被轉發到位於 `<app_path>/dir/socket_server.socket` 的socket伺服器，並且路徑是 `/some/api` 。
+
 # 1.2.0-patch2
 
 fix some bug.
