@@ -5,3 +5,4 @@ package-lock.json
 .vscode/
 release/
 test*
+secret*

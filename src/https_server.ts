@@ -856,48 +856,37 @@ export const HTTPSServer=class{
 			this.log_file_fs=this.log_file_path?fs.createWriteStream(this.log_file_path,{flags:"a"}):null;
 			// http/https server
 			if(this.port !== null && this.port>=0 && this.port<=65535){
-				new Promise<void>(()=>{
-					this.write_log("🔵Log","Starting server...");
-					if(cert && key){
-						this.server=https.createServer({
-							cert:cert,
-							key:key
-						},this.server_function);
-						this.write_log("🔵Log","HTTPS server created with cert and key.");
-					}else{
-						this.server=http.createServer(this.server_function);
-						this.write_log("🔵Log","HTTP server created without cert and key.");
-					}
-					this.server.listen(this.port,()=>{
-						this.write_log("🟢Info",`Server started on port ${this.port}`);
-					});
+				this.write_log("🔵Log","Starting server...");
+				if(cert && key){
+					this.server=https.createServer({
+						cert:cert,
+						key:key
+					},this.server_function);
+					this.write_log("🔵Log","HTTPS server created with cert and key.");
+				}else{
+					this.server=http.createServer(this.server_function);
+					this.write_log("🔵Log","HTTP server created without cert and key.");
+				}
+				this.server.listen(this.port,()=>{
+					this.write_log("🟢Info",`Server started on port ${this.port}`);
 				});
 			}
 			// socket server
 			if(this.unix_domain_socket_path !== null && this.unix_domain_socket_path){
-				if(fs.existsSync(this.unix_domain_socket_path))
+				if(fs.existsSync(this.unix_domain_socket_path)){
 					fs.rmSync(this.unix_domain_socket_path,{force:true});
-				new Promise<void>(()=>{
-					this.write_log("🔵Log","Starting unix domain socket server...");
-					if(cert && key){
-						this.unix_socket_server=https.createServer({
-							cert,
-							key
-						},this.server_function);
-					}else{
-						this.unix_socket_server=http.createServer(this.server_function);
-					}
-					this.unix_socket_server.listen(this.unix_domain_socket_path,()=>{
-						this.write_log("🟢Info",`Unix domain socket server started on path ${this.unix_domain_socket_path}`);
-					});
-
-
-					// this.unix_socket_server=net.createServer((socket)=>{
-					// 	socket.on("data",this.server_function);
-					// });
-					// this.unix_socket_server.listen(this.unix_domain_socket_path,()=>{
-					// 	this.write_log("🟢Info",`Unix domain socket server started on path ${this.unix_domain_socket_path}`);
-					// });
+				}
+				this.write_log("🔵Log","Starting unix domain socket server...");
+				if(cert && key){
+					this.unix_socket_server=https.createServer({
+						cert,
+						key
+					},this.server_function);
+				}else{
+					this.unix_socket_server=http.createServer(this.server_function);
+				}
+				this.unix_socket_server.listen(this.unix_domain_socket_path,()=>{
+					this.write_log("🟢Info",`Unix domain socket server started on path ${this.unix_domain_socket_path}`);
 				});
 			}
 		}catch(e){
